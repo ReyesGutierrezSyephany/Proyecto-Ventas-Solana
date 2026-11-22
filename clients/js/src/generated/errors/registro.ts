@@ -19,15 +19,32 @@ import { REGISTRO_PROGRAM_ADDRESS } from "../programs";
 export const REGISTRO_ERROR__NO_OWNER = 0x1770; // 6000
 /** NoSKU: Error, la venta no esta en el historial del cliente */
 export const REGISTRO_ERROR__NO_S_K_U = 0x1771; // 6001
+/** ClienteNoEncontrado: Error, el cliente no pertenece al indice del registro */
+export const REGISTRO_ERROR__CLIENTE_NO_ENCONTRADO = 0x1772; // 6002
+/** ClienteConVentasActivas: Error, no se puede eliminar un cliente con ventas activas */
+export const REGISTRO_ERROR__CLIENTE_CON_VENTAS_ACTIVAS = 0x1773; // 6003
+/** ValorPorcentajeInvalido: Error, el porcentaje de descuento debe estar entre 1 y 99 */
+export const REGISTRO_ERROR__VALOR_PORCENTAJE_INVALIDO = 0x1774; // 6004
+/** ValorMontoCero: Error, el monto resultante despues del descuento no puede ser cero */
+export const REGISTRO_ERROR__VALOR_MONTO_CERO = 0x1775; // 6005
 
 export type RegistroError =
-  typeof REGISTRO_ERROR__NO_OWNER | typeof REGISTRO_ERROR__NO_S_K_U;
+  | typeof REGISTRO_ERROR__CLIENTE_CON_VENTAS_ACTIVAS
+  | typeof REGISTRO_ERROR__CLIENTE_NO_ENCONTRADO
+  | typeof REGISTRO_ERROR__NO_OWNER
+  | typeof REGISTRO_ERROR__NO_S_K_U
+  | typeof REGISTRO_ERROR__VALOR_MONTO_CERO
+  | typeof REGISTRO_ERROR__VALOR_PORCENTAJE_INVALIDO;
 
 let registroErrorMessages: Record<RegistroError, string> | undefined;
 if (process.env["NODE_ENV"] !== "production") {
   registroErrorMessages = {
+    [REGISTRO_ERROR__CLIENTE_CON_VENTAS_ACTIVAS]: `Error, no se puede eliminar un cliente con ventas activas`,
+    [REGISTRO_ERROR__CLIENTE_NO_ENCONTRADO]: `Error, el cliente no pertenece al indice del registro`,
     [REGISTRO_ERROR__NO_OWNER]: `Error, no eres el owner del registro`,
     [REGISTRO_ERROR__NO_S_K_U]: `Error, la venta no esta en el historial del cliente`,
+    [REGISTRO_ERROR__VALOR_MONTO_CERO]: `Error, el monto resultante despues del descuento no puede ser cero`,
+    [REGISTRO_ERROR__VALOR_PORCENTAJE_INVALIDO]: `Error, el porcentaje de descuento debe estar entre 1 y 99`,
   };
 }
 

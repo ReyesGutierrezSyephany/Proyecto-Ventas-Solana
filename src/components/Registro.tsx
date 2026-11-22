@@ -6,13 +6,17 @@ import { NEGOCIO_INICIAL, UNIDAD_MONTO } from '../config/interfaz';
 import { leerRegistro, type RegistroUI } from '../solana/lecturas';
 import { negocioValido } from '../solana/validaciones';
 import { ErrorTransaccion, ErrorConfirmacionPendiente, enlaceTransaccion, traducir, type OpcionesEnvio } from '../solana/tx';
-import { crearRegistro, crearCliente, registrarVenta, cambiarMonto, hacerDevolucion } from '../solana/acciones';
+import { crearRegistro, crearCliente, registrarVenta, cambiarMonto, hacerDevolucion, eliminarCliente, aplicarDescuento } from '../solana/acciones';
 
-type Operacion = 'registro' | 'cliente' | 'venta' | 'monto' | 'devolucion';
+type Operacion = 'registro' | 'cliente' | 'venta' | 'monto' | 'descuento' | 'devolucion' | 'baja';
 const operaciones: { id: Operacion; texto: string }[] = [
-  { id: 'registro', texto: 'Crear registro' }, { id: 'cliente', texto: 'Crear cliente' },
-  { id: 'venta', texto: 'Registrar venta' }, { id: 'monto', texto: 'Corregir importe' },
+  { id: 'registro', texto: 'Crear registro' },
+  { id: 'cliente', texto: 'Crear cliente' },
+  { id: 'venta', texto: 'Registrar venta' },
+  { id: 'monto', texto: 'Corregir importe' },
+  { id: 'descuento', texto: 'Descuento %' },
   { id: 'devolucion', texto: 'Devolución' },
+  { id: 'baja', texto: 'Dar de baja' },
 ];
 
 export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcupado: (valor: boolean) => void }) {
@@ -31,6 +35,7 @@ export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcup
   const [sku, setSku] = useState('CAF01');
   const [descripcion, setDescripcion] = useState('Cafe americano');
   const [monto, setMonto] = useState('50');
+  const [porcentaje, setPorcentaje] = useState('10');
   const [ocupado, setOcupado] = useState(false);
   const [fase, setFase] = useState('');
   const [firma, setFirma] = useState('');
@@ -68,14 +73,16 @@ export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcup
     const direccionWallet = walletDireccion;
     const opciones: OpcionesEnvio = { onEstado: (estado) => setFase(estado === 'firma' ? 'Revisa la solicitud en tu wallet…' : 'Esperando confirmación de la red…') };
     try {
-      const id = Number(idCliente), importe = Number(monto);
+      const id = Number(idCliente), importe = Number(monto), desc = Number(porcentaje);
       let resultado: string;
       switch (op) {
         case 'registro': resultado = await crearRegistro(wallet, connection, nombreNegocio, opciones); break;
         case 'cliente': resultado = await crearCliente(wallet, connection, nombreNegocio, nombre, opciones); break;
         case 'venta': resultado = await registrarVenta(wallet, connection, nombreNegocio, id, sku, descripcion, importe, opciones); break;
         case 'monto': resultado = await cambiarMonto(wallet, connection, nombreNegocio, id, sku, importe, opciones); break;
+        case 'descuento': resultado = await aplicarDescuento(wallet, connection, nombreNegocio, id, sku, desc, opciones); break;
         case 'devolucion': resultado = await hacerDevolucion(wallet, connection, nombreNegocio, id, sku, opciones); break;
+        case 'baja': resultado = await eliminarCliente(wallet, connection, nombreNegocio, id, opciones); break;
       }
       setFirma(resultado); setFase('Operación confirmada correctamente.'); onCambio();
       try { await cargar(nombreNegocio, direccionWallet); }
@@ -88,6 +95,13 @@ export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcup
 
   const esOtraAutoridad = !!autoridad.trim() && autoridad.trim() !== walletDireccion;
   const permiteEscribir = !programa.esReferencia && !!wallet.publicKey && !esOtraAutoridad;
+  const clienteSeleccionado = registro?.clientes.find((c) => c.idCliente === Number(idCliente));
+  const ventaSeleccionada = clienteSeleccionado?.ventas.find((v) => v.sku.toLowerCase() === sku.trim().toLowerCase());
+  const totalIngresos = registro?.clientes.reduce(
+    (acc, c) => acc + c.ventas.reduce((sum, v) => sum + v.monto, 0),
+    0
+  ) ?? 0;
+
   return <>
     <div className="section-heading"><div><p className="eyebrow">NEGOCIO · CLIENTES · VENTAS</p><h2>Tu registro de ventas</h2></div><span className="tag">Cuentas independientes</span></div>
     {programa.esReferencia && <aside className="notice information"><strong>Configura tu programa para comenzar.</strong><p>La aplicación incluye un IDL de referencia. Importa el exportado de tu despliegue para consultar el negocio y realizar operaciones. Las lecturas de saldo ya están disponibles en Conexión.</p></aside>}
@@ -102,11 +116,22 @@ export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcup
     <div className="workspace-grid">
       <section className="panel customers-panel"><div className="panel-heading"><h3>Clientes y ventas</h3>{registro && <span className="count">{registro.clientes.length} clientes</span>}</div>
         {!registro ? <div className="empty-state"><span className="empty-symbol">◎</span><h4>{consultado ? 'El registro todavía no existe' : 'El negocio aparecerá aquí'}</h4><p>{consultado ? 'Comprueba el nombre y la autoridad, o crea un registro con tu wallet conectada.' : 'Consulta el registro para ver sus clientes y las ventas activas de cada uno.'}</p></div> : <>
-          <div className="registry-summary"><div><span className="label">Negocio</span><strong>{registro.nombreNegocio}</strong></div><div><span className="label">Último ID asignado</span><strong>{registro.idCounter}</strong></div></div>
+          <div className="registry-summary">
+            <div><span className="label">Negocio</span><strong>{registro.nombreNegocio}</strong></div>
+            <div><span className="label">Último ID asignado</span><strong>{registro.idCounter}</strong></div>
+            <div><span className="label">Ingresos activos</span><strong>{totalIngresos.toLocaleString('es-MX')} <small>{UNIDAD_MONTO}</small></strong></div>
+          </div>
           <details className="technical-details"><summary>Dirección del registro</summary><code className="address">{registro.direccion}</code></details>
           {registro.clientes.length === 0 ? <p className="empty-line">Todavía no hay clientes. Puedes crear el primero desde Operaciones.</p> : registro.clientes.map((cliente) => <article className="customer" key={cliente.direccion}>
-            <header><div><strong>{cliente.nombre}</strong><span className="small-note">Cliente #{cliente.idCliente} · {cliente.compras} ventas activas</span></div><button className="text-button" disabled={ocupado} onClick={() => { setIdCliente(String(cliente.idCliente)); setOp('venta'); }}>Seleccionar</button></header>
-            {cliente.ventas.length === 0 ? <p className="empty-line">Sin ventas activas.</p> : <div className="table-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th className="numeric">Importe</th></tr></thead><tbody>{cliente.ventas.map((venta) => <tr key={venta.direccion} onClick={() => { if (!ocupado) { setIdCliente(String(cliente.idCliente)); setSku(venta.sku); setMonto(String(venta.monto)); setOp('monto'); } }}><td><code>{venta.sku}</code></td><td>{venta.descripcion}</td><td className="numeric">{venta.monto.toLocaleString('es-MX')} <small>{UNIDAD_MONTO}</small></td></tr>)}</tbody></table></div>}
+            <header>
+              <div><strong>{cliente.nombre}</strong><span className="small-note">Cliente #{cliente.idCliente} · {cliente.compras} ventas activas</span></div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="text-button" disabled={ocupado} onClick={() => { setIdCliente(String(cliente.idCliente)); setOp('venta'); }}>Seleccionar</button>
+                <button className="text-button" disabled={ocupado} onClick={() => { setIdCliente(String(cliente.idCliente)); setOp('baja'); setFirma(''); setErrorOperacion(''); setFirmaFallida(''); setFase(''); }}>Dar de baja</button>
+              </div>
+            </header>
+            <details className="technical-details"><summary>Dirección del cliente</summary><code className="address">{cliente.direccion}</code></details>
+            {cliente.ventas.length === 0 ? <p className="empty-line">Sin ventas activas.</p> : <div className="table-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th className="numeric">Importe</th></tr></thead><tbody>{cliente.ventas.map((venta) => <tr key={venta.direccion} onClick={() => { if (!ocupado) { setIdCliente(String(cliente.idCliente)); setSku(venta.sku); setMonto(String(venta.monto)); setOp('descuento'); } }}><td><code>{venta.sku}</code></td><td>{venta.descripcion}</td><td className="numeric">{venta.monto.toLocaleString('es-MX')} <small>{UNIDAD_MONTO}</small></td></tr>)}</tbody></table></div>}
           </article>)}
         </>}
       </section>
@@ -116,9 +141,24 @@ export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcup
           <fieldset disabled={ocupado || !permiteEscribir}>
             {op === 'registro' && <p className="help">Crearás un registro para <strong>{negocio || 'tu negocio'}</strong> con la wallet conectada como autoridad.</p>}
             {op === 'cliente' && <label>Nombre del cliente<input value={nombre} onChange={(e) => setNombre(e.target.value)} required /></label>}
-            {(op === 'venta' || op === 'monto' || op === 'devolucion') && <div className="two-fields"><label>ID del cliente<input type="number" min="1" max="65535" step="1" value={idCliente} onChange={(e) => setIdCliente(e.target.value)} required /></label><label>SKU<input value={sku} onChange={(e) => setSku(e.target.value)} required /></label></div>}
+            {(op === 'venta' || op === 'monto' || op === 'descuento' || op === 'devolucion') && <div className="two-fields"><label>ID del cliente<input type="number" min="1" max="65535" step="1" value={idCliente} onChange={(e) => setIdCliente(e.target.value)} required /></label><label>SKU<input value={sku} onChange={(e) => setSku(e.target.value)} required /></label></div>}
+            {op === 'baja' && <>
+              <label>ID del cliente<input type="number" min="1" max="65535" step="1" value={idCliente} onChange={(e) => setIdCliente(e.target.value)} required /></label>
+              <p className="notice subtle">Retira la referencia del cliente en el registro y cierra su cuenta. Solo se permite si no tiene ventas activas (el contador de IDs no retrocede).</p>
+              {clienteSeleccionado && clienteSeleccionado.compras > 0 && (
+                <p className="notice information">Aviso de prueba: este cliente conserva {clienteSeleccionado.compras} venta(s) activa(s). Al enviar, el programa en Rust rechazará la solicitud.</p>
+              )}
+            </>}
             {op === 'venta' && <label>Descripción<input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required /></label>}
             {(op === 'venta' || op === 'monto') && <label>{op === 'monto' ? 'Nuevo importe' : 'Importe'}<input type="number" min="1" max="4294967295" step="1" value={monto} onChange={(e) => setMonto(e.target.value)} required /><span className="help">Unidades enteras del ejercicio. No representa una transferencia de SOL.</span></label>}
+            {op === 'descuento' && <>
+              <label>Porcentaje de descuento (1 - 99%)<input type="number" min="1" max="99" step="1" value={porcentaje} onChange={(e) => setPorcentaje(e.target.value)} required /></label>
+              {ventaSeleccionada && Number(porcentaje) >= 1 && Number(porcentaje) <= 99 && (
+                <p className="notice subtle">
+                  Importe actual: <strong>{ventaSeleccionada.monto}</strong> → Nuevo importe estimado en cadena: <strong>{ventaSeleccionada.monto - Math.floor((ventaSeleccionada.monto * Number(porcentaje)) / 100)} {UNIDAD_MONTO}</strong>
+                </p>
+              )}
+            </>}
             {op === 'devolucion' && <p className="notice subtle">Esta operación quita la venta del historial y cierra su cuenta. No realiza un reembolso comercial.</p>}
             <button className="button primary" type="submit" disabled={!negocio.trim()}>{ocupado ? 'Operación en curso…' : operaciones.find((item) => item.id === op)!.texto}</button>
           </fieldset>

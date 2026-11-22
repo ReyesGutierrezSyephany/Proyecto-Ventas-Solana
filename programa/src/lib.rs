@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("");
+declare_id!("J8tHbYREWv2jWC9Dr3J5wHzmgLYYjBvcwdGUDrQjiUnD");
 
 #[program]
 pub mod registro {
@@ -128,6 +128,79 @@ pub mod registro {
 
         Ok(())
     }
+
+    /////////////////////////// Descuento Venta ///////////////////////////
+    // Recibe un porcentaje (1 a 99) y reduce el monto de una venta existente de forma segura.
+    pub fn descuento_venta(
+        context: Context<ModificarVenta>,
+        _id_cliente: u16,
+        sku: String,
+        porcentaje: u8,
+    ) -> Result<()> {
+        // 1. Validar que el porcentaje este en el rango permitido (1% a 99%)
+        require!(
+            porcentaje > 0 && porcentaje < 100,
+            Errores::ValorPorcentajeInvalido
+        );
+
+        let venta = &mut context.accounts.venta;
+        let viejo_monto = venta.monto;
+
+        // 2. Calculo aritmetico seguro en u64 para evitar overflow
+        let descuento = (viejo_monto as u64)
+            .checked_mul(porcentaje as u64)
+            .ok_or(Errores::ValorPorcentajeInvalido)?
+            .checked_div(100)
+            .ok_or(Errores::ValorPorcentajeInvalido)?;
+
+        let nuevo_monto = viejo_monto.saturating_sub(descuento as u32);
+
+        // 3. Evitar que el importe final quede en cero
+        require!(nuevo_monto > 0, Errores::ValorMontoCero);
+
+        venta.monto = nuevo_monto;
+
+        msg!(
+            "Descuento del {}% aplicado al sku: {}. Monto paso de {} a {}",
+            porcentaje,
+            sku,
+            viejo_monto,
+            nuevo_monto
+        );
+
+        Ok(())
+    }
+
+    /////////////////////////// Eliminar Cliente ///////////////////////////
+    // El contexto EliminarCliente lleva "close = owner": la cuenta del cliente se cierra al final
+    // y su rent vuelve al owner, siempre que no tenga ventas activas.
+    pub fn eliminar_cliente(
+        context: Context<EliminarCliente>,
+        id_cliente: u16,
+    ) -> Result<()> {
+        let cliente_key = context.accounts.cliente.key(); // Se lee ANTES del &mut de registro
+        let cliente = &context.accounts.cliente;
+        let registro = &mut context.accounts.registro;
+
+        // 1. Verificar que el cliente siga referenciado en el indice del registro
+        require!(
+            registro.clientes.contains(&cliente_key),
+            Errores::ClienteNoEncontrado
+        );
+
+        // 2. Verificar que no tenga ventas activas (historial vacio y compras en 0)
+        require!(
+            cliente.historial.is_empty() && cliente.compras == 0,
+            Errores::ClienteConVentasActivas
+        );
+
+        // 3. Retirar unicamente la referencia de este cliente (id_counter NO se modifica)
+        registro.clientes.retain(|&k| k != cliente_key);
+
+        msg!("Cliente con id: {} eliminado exitosamente!", id_cliente);
+
+        Ok(())
+    }
 }
 
 /////////////////////////// Codigos de Error ///////////////////////////
@@ -137,6 +210,14 @@ pub enum Errores {
     NoOwner,
     #[msg("Error, la venta no esta en el historial del cliente")]
     NoSKU,
+    #[msg("Error, el cliente no pertenece al indice del registro")]
+    ClienteNoEncontrado,
+    #[msg("Error, no se puede eliminar un cliente con ventas activas")]
+    ClienteConVentasActivas,
+    #[msg("Error, el porcentaje de descuento debe estar entre 1 y 99")]
+    ValorPorcentajeInvalido,
+    #[msg("Error, el monto resultante despues del descuento no puede ser cero")]
+    ValorMontoCero,
 }
 
 /////////////////////////// CUENTAS ///////////////////////////
@@ -281,7 +362,7 @@ pub struct NuevaVenta<'info> {
 }
 
 /////////////////////////// Modificar Venta ///////////////////////////
-/// Instruccion: cambiar_monto
+/// Instruccion: cambiar_monto y descuento_venta
 
 #[derive(Accounts)]
 #[instruction(id_cliente: u16, sku: String)]
@@ -331,4 +412,25 @@ pub struct EliminarVenta<'info> {
         bump
     )]
     pub venta: Account<'info, Venta>,
+}
+
+/////////////////////////// Eliminar Cliente ///////////////////////////
+/// Instruccion: eliminar_cliente -> quita referencia en registro y cierra cliente
+
+#[derive(Accounts)]
+#[instruction(id_cliente: u16)]
+pub struct EliminarCliente<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>, // mut: recibe el rent de la cuenta cerrada
+
+    #[account(mut, has_one = owner @ Errores::NoOwner)]
+    pub registro: Account<'info, Registro>, // mut: se actualiza el vector registro.clientes
+
+    #[account(
+        mut,
+        close = owner,
+        seeds = [b"cliente", registro.key().as_ref(), id_cliente.to_le_bytes().as_ref()],
+        bump
+    )]
+    pub cliente: Account<'info, Cliente>,
 }

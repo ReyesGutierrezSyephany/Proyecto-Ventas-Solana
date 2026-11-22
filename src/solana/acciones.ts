@@ -3,6 +3,7 @@ import type { Connection } from '@solana/web3.js';
 import {
   getCrearRegistroInstruction, getCrearClienteInstruction,
   getRegistrarVentaInstruction, getCambiarMontoInstruction, getHacerDevolucionInstruction,
+  getEliminarClienteInstruction, getDescuentoVentaInstruction,
 } from '../../clients/js/src/generated';
 import { cadena, pdaCliente, pdaRegistro } from './pdas';
 import { siguienteId } from './lecturas';
@@ -17,12 +18,9 @@ export function direccionDe(wallet: Pick<WalletFirma, 'publicKey'>): Address {
 
 function firmante(wallet: WalletFirma) {
   comprobarConfiguracion();
-  // Representa la identidad que la wallet firmará después; no contiene claves.
-  // Los roles finales los establece el builder generado del cliente actual.
   return createNoopSigner(direccionDe(wallet));
 }
 
-/** Ejemplo resuelto: identidad, cuentas, instrucción y envío. */
 export async function crearRegistro(wallet: WalletFirma, connection: Connection, nombreNegocio: string, opciones?: OpcionesEnvio): Promise<string> {
   nombreNegocio = negocioValido(nombreNegocio);
   const owner = firmante(wallet);
@@ -31,7 +29,6 @@ export async function crearRegistro(wallet: WalletFirma, connection: Connection,
   return enviar(ix, wallet, connection, opciones);
 }
 
-/** Ejercicio 1 del día 4: crear la cuenta Cliente y actualizar Registro. */
 export async function crearCliente(wallet: WalletFirma, connection: Connection, nombreNegocio: string, nombre: string, opciones?: OpcionesEnvio): Promise<string> {
   nombreNegocio = negocioValido(nombreNegocio);
   nombre = nombreValido(nombre);
@@ -43,7 +40,6 @@ export async function crearCliente(wallet: WalletFirma, connection: Connection, 
   return enviar(ix, wallet, connection, opciones);
 }
 
-/** Ejercicio 2: mismo patrón con una Venta que depende del Cliente. */
 export async function registrarVenta(wallet: WalletFirma, connection: Connection, nombreNegocio: string, idCliente: number, sku: string, descripcion: string, monto: number, opciones?: OpcionesEnvio): Promise<string> {
   nombreNegocio = negocioValido(nombreNegocio);
   idCliente = idValido(idCliente);
@@ -74,5 +70,30 @@ export async function hacerDevolucion(wallet: WalletFirma, connection: Connectio
   const owner = firmante(wallet);
   const { registro, cliente, venta } = cadena(nombreNegocio, owner.address, idCliente, sku);
   const ix = getHacerDevolucionInstruction({ owner, registro, cliente, venta, idCliente, sku });
+  return enviar(ix, wallet, connection, opciones);
+}
+
+/** Día 5: dar de baja a un cliente sin ventas activas y cerrar su cuenta. */
+export async function eliminarCliente(wallet: WalletFirma, connection: Connection, nombreNegocio: string, idCliente: number, opciones?: OpcionesEnvio): Promise<string> {
+  nombreNegocio = negocioValido(nombreNegocio);
+  idCliente = idValido(idCliente);
+  const owner = firmante(wallet);
+  const registro = pdaRegistro(nombreNegocio, owner.address);
+  const cliente = pdaCliente(registro, idCliente);
+  const ix = getEliminarClienteInstruction({ owner, registro, cliente, idCliente });
+  return enviar(ix, wallet, connection, opciones);
+}
+
+/** Proyecto Final: aplicar un descuento porcentual (1-99%) a una venta existente. */
+export async function aplicarDescuento(wallet: WalletFirma, connection: Connection, nombreNegocio: string, idCliente: number, sku: string, porcentaje: number, opciones?: OpcionesEnvio): Promise<string> {
+  nombreNegocio = negocioValido(nombreNegocio);
+  idCliente = idValido(idCliente);
+  sku = skuValido(sku);
+  if (!Number.isInteger(porcentaje) || porcentaje < 1 || porcentaje > 99) {
+    throw new Error('El porcentaje de descuento debe ser un entero entre 1 y 99.');
+  }
+  const owner = firmante(wallet);
+  const { registro, cliente, venta } = cadena(nombreNegocio, owner.address, idCliente, sku);
+  const ix = getDescuentoVentaInstruction({ owner, registro, cliente, venta, idCliente, sku, porcentaje });
   return enviar(ix, wallet, connection, opciones);
 }

@@ -1,9 +1,6 @@
 {
   "version": "0.1.0",
   "name": "registro",
-  "metadata": {
-    "address": "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY"
-  },
   "instructions": [
     {
       "name": "crearRegistro",
@@ -183,6 +180,71 @@
           "type": "u32"
         }
       ]
+    },
+    {
+      "name": "descuentoVenta",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "registro",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "cliente",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "venta",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "idCliente",
+          "type": "u16"
+        },
+        {
+          "name": "sku",
+          "type": "string"
+        },
+        {
+          "name": "porcentaje",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "eliminarCliente",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "registro",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "cliente",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "idCliente",
+          "type": "u16"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -269,6 +331,29 @@
       "code": 6001,
       "name": "NoSKU",
       "msg": "Error, la venta no esta en el historial del cliente"
+    },
+    {
+      "code": 6002,
+      "name": "ClienteNoEncontrado",
+      "msg": "Error, el cliente no pertenece al indice del registro"
+    },
+    {
+      "code": 6003,
+      "name": "ClienteConVentasActivas",
+      "msg": "Error, no se puede eliminar un cliente con ventas activas"
+    },
+    {
+      "code": 6004,
+      "name": "ValorPorcentajeInvalido",
+      "msg": "Error, el porcentaje de descuento debe estar entre 1 y 99"
+    },
+    {
+      "code": 6005,
+      "name": "ValorMontoCero",
+      "msg": "Error, el monto resultante despues del descuento no puede ser cero"
     }
-  ]
+  ],
+  "metadata": {
+    "address": "J8tHbYREWv2jWC9Dr3J5wHzmgLYYjBvcwdGUDrQjiUnD"
+  }
 }

@@ -49,27 +49,35 @@ import {
   getCambiarMontoInstruction,
   getCrearClienteInstruction,
   getCrearRegistroInstruction,
+  getDescuentoVentaInstruction,
+  getEliminarClienteInstruction,
   getHacerDevolucionInstruction,
   getRegistrarVentaInstruction,
   parseCambiarMontoInstruction,
   parseCrearClienteInstruction,
   parseCrearRegistroInstruction,
+  parseDescuentoVentaInstruction,
+  parseEliminarClienteInstruction,
   parseHacerDevolucionInstruction,
   parseRegistrarVentaInstruction,
   type CambiarMontoInput,
   type CrearClienteInput,
   type CrearRegistroInput,
+  type DescuentoVentaInput,
+  type EliminarClienteInput,
   type HacerDevolucionInput,
   type ParsedCambiarMontoInstruction,
   type ParsedCrearClienteInstruction,
   type ParsedCrearRegistroInstruction,
+  type ParsedDescuentoVentaInstruction,
+  type ParsedEliminarClienteInstruction,
   type ParsedHacerDevolucionInstruction,
   type ParsedRegistrarVentaInstruction,
   type RegistrarVentaInput,
 } from "../instructions";
 
 export const REGISTRO_PROGRAM_ADDRESS =
-  "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY" as Address<"38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY">;
+  "J8tHbYREWv2jWC9Dr3J5wHzmgLYYjBvcwdGUDrQjiUnD" as Address<"J8tHbYREWv2jWC9Dr3J5wHzmgLYYjBvcwdGUDrQjiUnD">;
 
 export enum RegistroAccount {
   Registro,
@@ -126,6 +134,8 @@ export enum RegistroInstruction {
   RegistrarVenta,
   HacerDevolucion,
   CambiarMonto,
+  DescuentoVenta,
+  EliminarCliente,
 }
 
 export function identifyRegistroInstruction(
@@ -187,6 +197,28 @@ export function identifyRegistroInstruction(
   ) {
     return RegistroInstruction.CambiarMonto;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([247, 8, 56, 133, 76, 1, 113, 98]),
+      ),
+      0,
+    )
+  ) {
+    return RegistroInstruction.DescuentoVenta;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([205, 132, 251, 133, 247, 51, 204, 55]),
+      ),
+      0,
+    )
+  ) {
+    return RegistroInstruction.EliminarCliente;
+  }
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
     { instructionData: data, programName: "registro" },
@@ -194,7 +226,7 @@ export function identifyRegistroInstruction(
 }
 
 export type ParsedRegistroInstruction<
-  TProgram extends string = "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY",
+  TProgram extends string = "J8tHbYREWv2jWC9Dr3J5wHzmgLYYjBvcwdGUDrQjiUnD",
 > =
   | ({
       instructionType: RegistroInstruction.CrearRegistro;
@@ -210,7 +242,13 @@ export type ParsedRegistroInstruction<
     } & ParsedHacerDevolucionInstruction<TProgram>)
   | ({
       instructionType: RegistroInstruction.CambiarMonto;
-    } & ParsedCambiarMontoInstruction<TProgram>);
+    } & ParsedCambiarMontoInstruction<TProgram>)
+  | ({
+      instructionType: RegistroInstruction.DescuentoVenta;
+    } & ParsedDescuentoVentaInstruction<TProgram>)
+  | ({
+      instructionType: RegistroInstruction.EliminarCliente;
+    } & ParsedEliminarClienteInstruction<TProgram>);
 
 export function parseRegistroInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -250,6 +288,20 @@ export function parseRegistroInstruction<TProgram extends string>(
       return {
         instructionType: RegistroInstruction.CambiarMonto,
         ...parseCambiarMontoInstruction(instruction),
+      };
+    }
+    case RegistroInstruction.DescuentoVenta: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RegistroInstruction.DescuentoVenta,
+        ...parseDescuentoVentaInstruction(instruction),
+      };
+    }
+    case RegistroInstruction.EliminarCliente: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RegistroInstruction.EliminarCliente,
+        ...parseEliminarClienteInstruction(instruction),
       };
     }
     default:
@@ -301,6 +353,16 @@ export type RegistroPluginInstructions = {
     input: CambiarMontoInput,
     config?: { programAddress?: Address | HasAddress },
   ) => ReturnType<typeof getCambiarMontoInstruction> & SelfPlanAndSendFunctions;
+  descuentoVenta: (
+    input: DescuentoVentaInput,
+    config?: { programAddress?: Address | HasAddress },
+  ) => ReturnType<typeof getDescuentoVentaInstruction> &
+    SelfPlanAndSendFunctions;
+  eliminarCliente: (
+    input: EliminarClienteInput,
+    config?: { programAddress?: Address | HasAddress },
+  ) => ReturnType<typeof getEliminarClienteInstruction> &
+    SelfPlanAndSendFunctions;
 };
 
 export type RegistroPluginRequirements = ClientWithRpc<
@@ -359,6 +421,22 @@ export function registroProgram(
             addSelfPlanAndSendFunctions(
               client,
               getCambiarMontoInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              }),
+            ),
+          descuentoVenta: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getDescuentoVentaInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              }),
+            ),
+          eliminarCliente: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getEliminarClienteInstruction(input, {
                 programAddress:
                   instructionConfig?.programAddress ?? config.programAddress,
               }),
