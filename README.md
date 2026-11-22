@@ -39,16 +39,4 @@ El repositorio mantiene sincronizados el programa fuente, el IDL y el cliente ge
    npm run cliente
 
 
-   EVIDENCIAS
-
-   <img width="955" height="831" alt="Captura de pantalla 2026-11-22 001125" src="https://github.com/user-attachments/assets/2510ec06-abd8-4d5f-9be3-64e83b9fe682" />
-
-   <img width="933" height="917" alt="Captura de pantalla 2026-11-22 001101" src="https://github.com/user-attachments/assets/7406f593-937d-4f65-a81a-c0f0faaf34c1" />
-
-   <img width="932" height="728" alt="Captura de pantalla 2026-11-22 001043" src="https://github.com/user-attachments/assets/cf51ddf1-b847-4db1-8b34-55317aea59f6" />
-
-   <img width="960" height="822" alt="Captura de pantalla 2026-11-22 000934" src="https://github.com/user-attachments/assets/ce50f22c-baae-4abb-967c-3bda55bca188" />
-
-
-
 
