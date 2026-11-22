@@ -17,6 +17,9 @@ Puedes comenzar haciendo **Fork** de este repositorio. Hemos preparado un entorn
 - Crear un negocio y dar de alta a sus clientes.
 - Registrar ventas, corregir su importe y realizar devoluciones.
 - Revisar solicitudes de firma, confirmaciones y errores de las transacciones.
+- Dar de baja a clientes sin ventas activas (eliminar_cliente), retirando su referencia del registro y cerrando su cuenta PDA para recuperar renta.
+- Aplicar descuentos porcentuales del 1% al 99% sobre ventas activas (descuento_venta) con cálculo seguro en Rust y vista previa del monto final.
+- Visualizar el resumen acumulado de Ingresos activos del negocio.
 
 El recorrido del proyecto sigue esta relación:
 
@@ -79,6 +82,12 @@ Abre `http://localhost:5173` en el navegador con tu wallet instalada.
 En Windows puedes ejecutar estos comandos desde WSL. El repositorio también incluye una configuración de Dev Container para VS Code, si ya utilizas Docker y la extensión Dev Containers.
 
 ## Conectar el programa de Solana
+
+Program ID: J8tHbYREWv2jWC9Dr3J5wHzmgLYYjBvcwdGUDrQjiUnD
+
+Nuevas instrucciones agregadas: eliminar_cliente(id_cliente: u16) y descuento_venta(id_cliente: u16, sku: String, porcentaje: u8).
+
+Nuevos códigos de error: ClienteNoEncontrado, ClienteConVentasActivas, ValorPorcentajeInvalido y ValorMontoCero.
 
 El frontend y el programa son dos partes del mismo proyecto:
 
@@ -144,6 +153,7 @@ Detén `npm run dev` antes de cambiar de modo y vuelve a iniciarlo al terminar.
 | `clients/js/src/generated/` | Código generado con Codama; no se modifica a mano. |
 | `materiales/` | Versión de ejercicio y solución de las operaciones. |
 | `docs/` | Guías de configuración, pruebas y alcance del ejemplo. |
+programa/src/lib.rs: Código fuente completo del smart contract en Anchor desplegado en Devnet.
 
 La base utiliza **React + Vite**, **TypeScript**, **Wallet Adapter**, **Solana Kit**, **web3.js** y **Codama**. La integración entre las librerías ya está preparada para que puedas concentrarte en el flujo de cuentas e instrucciones.
 
