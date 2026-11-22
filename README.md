@@ -40,3 +40,12 @@ El repositorio mantiene sincronizados el programa fuente, el IDL y el cliente ge
 
 
 
+<img width="960" height="822" alt="Captura de pantalla 2026-11-22 000934" src="https://github.com/user-attachments/assets/6e4721af-a9c9-41b0-9d55-ae4cff0286a5" />
+<img width="955" height="831" alt="Captura de pantalla 2026-11-22 001125" src="https://github.com/user-attachments/assets/d91b73f8-1277-4ab2-bdcd-162d921b0b26" />
+<img width="933" height="917" alt="Captura de pantalla 2026-11-22 001101" src="https://github.com/user-attachments/assets/0cee3577-71ec-4b04-9b02-b213fa4779c4" />
+<img width="932" height="728" alt="Captura de pantalla 2026-11-22 001043" src="https://github.com/user-attachments/assets/6e95393f-0805-4b62-b8f5-34e14530a9c2" />
+<img width="956" height="912" alt="Captura de pantalla 2026-11-22 001016" src="https://github.com/user-attachments/assets/e7674187-95a5-4957-913a-695d55f20c65" />
+
+
+
+
